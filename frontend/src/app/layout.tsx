@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Roboto } from 'next/font/google';
-import { ClerkProvider } from '@clerk/nextjs';
+import { ClerkProvider, SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import Navbar from '@/components/Navbar';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from 'react-hot-toast';
@@ -19,9 +19,9 @@ const roboto = Roboto({
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <ClerkProvider dynamic>
       <html lang="en" suppressHydrationWarning>
@@ -37,7 +37,15 @@ export default function RootLayout({
           >
             <div className="h-screen flex flex-col">
               <Navbar />
-              <main className="flex flex-1 flex-col">{children}</main>
+              <main className="flex flex-1 flex-col">
+                <SignedOut>
+                  <SignInButton />
+                </SignedOut>
+                <SignedIn>
+                  <UserButton />
+                </SignedIn>
+                {children}
+              </main>
             </div>
             <Toaster />
           </ThemeProvider>
