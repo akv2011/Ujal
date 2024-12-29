@@ -9,10 +9,10 @@ function Header() {
         <div className="flex flex-col gap-5">
           <h1 className="font-extrabold text-[40px] text-gray-800">
             Empower Your Support Experience with{' '}
-            <span className="text-blue-700">SupportSafe</span>
+            <span className="text-blue-700">Ujal</span>
           </h1>
           <p className="text-[20px] text-gray-600 leading-relaxed">
-            At SupportSafe, we&apos;re dedicated to ensuring every issue gets
+            At Ujal, we&apos;re dedicated to ensuring every issue gets
             the attention it deserves. Easily create support tickets, monitor
             real-time updates, and even help resolve community tickets. Your
             support journey starts here, and we&apos;re with you every step of
