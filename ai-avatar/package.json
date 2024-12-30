@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.9.2",
+    "elevenlabs-node": "^2.0.3"
+  }
+}

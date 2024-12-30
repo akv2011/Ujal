@@ -1,3 +1,4 @@
+// app/create-post/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -6,6 +7,7 @@ import Share from '@/components/Share';
 import { useClerk } from '@clerk/nextjs';
 import HorizontalLinearStepper from '@/components/MultiStep';
 import ImageGen from '@/components/ImageGen';
+
 function Page() {
   const [resImage, setResImage] = useState<string | null>(null);
   const [resText, setText] = useState<string | null>(null);
@@ -15,39 +17,36 @@ function Page() {
   const [shared, setShared] = useState(false);
 
   useEffect(() => {
-    // Move to the next step when resImage is set
     if (resText && resTextGemma) {
       setActiveStep(1);
     }
   }, [resText, resTextGemma]);
 
-  useEffect(() => {
-    // Move to the next step when resImage is set
-    if (resImage) {
-      setActiveStep(2);
-    }
-  }, [resImage]);
+  const handleImageEncoded = (encodedImageUrl: string) => {
+    setResImage(encodedImageUrl);
+    setActiveStep(2);
+  };
 
   useEffect(() => {
     if (shared) {
-      setActiveStep(4);
+      setActiveStep(3);
     }
   }, [shared]);
 
   const stepContent = [
-    <InputForm key="step1" setText={setText} setTextGemma={setTextGemma} />, // Step 1
+    <InputForm key="step1" setText={setText} setTextGemma={setTextGemma} />,
     <ImageGen
       key="step2"
-      text={resText || ''}
-      setResImage={setResImage}
-      textGemma={resTextGemma || ''}
-    />, // Step 2
+      text={resText || null}
+      textGemma={resTextGemma || null}
+      onImageEncoded={handleImageEncoded}
+    />,
     <Share
       key="step3"
       imageURL={resImage || ''}
       setShared={setShared}
       resText={resText || ''}
-    />, // Step 2
+    />,
   ];
 
   if (!user) {

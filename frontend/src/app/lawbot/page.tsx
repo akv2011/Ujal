@@ -19,6 +19,8 @@ const ChatSchema = z.object({
 
 type ChatFormValues = z.infer<typeof ChatSchema>;
 
+const KAGGLE_API_URL = "https://9fff-34-168-131-109.ngrok-free.app";
+
 const promptSuggestions = [
   { text: 'Indian Law', icon: <Scale className="text-gray-700" size={16} /> },
   {
@@ -40,9 +42,11 @@ function Page() {
     }[]
   >([]);
 
-  const typingText = useTypingText('What can I help you with?');
   const [isThinking, setIsThinking] = React.useState<boolean>(false);
-  // Custom hook for typing effect
+  const [error, setError] = React.useState<string>('');
+
+  const typingText = useTypingText('What can I help you with?');
+
   function useTypingText(text: string, speed: number = 100) {
     const [displayedText, setDisplayedText] = React.useState('');
 
@@ -70,16 +74,40 @@ function Page() {
     setMessages((prev) => [...prev, { text: data.message, isUser: true }]);
     form.reset();
     setIsThinking(true);
+    setError('');
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({ userInput: data.message }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    try {
+      // Call Kaggle API instead of the original API
+      const response = await fetch(KAGGLE_API_URL + '/ask_llm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: data.message }),
+      });
 
-    const result = await response.json();
-    setMessages((prev) => [...prev, { text: result.reply, isUser: false }]);
-    setIsThinking(false);
+      if (!response.ok) {
+        throw new Error('Failed to get response from legal bot');
+      }
+
+      const result = await response.json();
+      
+      // Use the answer from Kaggle API
+      if (result.answer) {
+        setMessages((prev) => [...prev, { text: result.answer, isUser: false }]);
+      } else {
+        throw new Error('No answer received from the Legal Bot');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setError('Failed to get an answer. Please try again.');
+      setMessages((prev) => [...prev, { 
+        text: 'Sorry, I encountered an error. Please try again.',
+        isUser: false 
+      }]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const handlePromptClick = (prompt: string) => {
@@ -87,9 +115,11 @@ function Page() {
     form.handleSubmit(onSubmit)();
   };
 
+  // Rest of your component remains the same...
   if (messages.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
+        {error && <p className="text-red-500 mb-2">{error}</p>} {/* Display error if it has a value */}
         <h1 className="text-3xl font-extrabold tracking-wide text-gray-700 mb-5">
           {typingText}
         </h1>

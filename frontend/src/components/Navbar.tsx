@@ -20,7 +20,7 @@ function Navbar() {
         href={'/'}
         className="font-bold text-2xl tracking-wide hover:text-blue-500 transition-colors duration-200"
       >
-        Support<span className="text-blue-700">Safe</span>
+        UJ<span className="text-blue-700">al</span>
       </Link>
       <div className="flex items-center justify-center gap-10 font-medium text-gray-600">
         <Link

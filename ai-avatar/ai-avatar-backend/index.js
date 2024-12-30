@@ -4,195 +4,181 @@ import dotenv from 'dotenv';
 import voice from 'elevenlabs-node';
 import express from 'express';
 import { promises as fs } from 'fs';
-import OpenAI from 'openai';
-import { VertexAI } from '@google-cloud/vertexai';
+import axios from 'axios';
 
 dotenv.config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '-', // Your OpenAI API key here, I used "-" to avoid errors when the key is not set but you should not do that
-});
-
 const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY;
-const voiceID = 'cgSgspJ2msm6clMCkdW9';
+const voiceID = 'cgSgspJ2msm6clMCkdW9'; // Replace with your desired voice ID
+const HUGGINGFACE_API_TOKEN = process.env.HUGGINGFACE_API_TOKEN;
+const MODEL = "mistralai/Mistral-7B-Instruct-v0.2"; // Example model
 
 const app = express();
 app.use(express.json());
-app.use(cors());
-const port = 3000;
+
+// **Enable CORS for development (replace with specific origin in production)**
+app.use(cors()); 
+
+const port = 4000;
+
+// Serve the 'audios' directory statically
+app.use('/audios', express.static('audios'));
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+    res.send('Hello World!');
 });
 
 app.get('/voices', async (req, res) => {
-  res.send(await voice.getVoices(elevenLabsApiKey));
+    try {
+        const voices = await voice.getVoices(elevenLabsApiKey);
+        res.send(voices);
+    } catch (error) {
+        console.error('Error fetching voices:', error);
+        res.status(500).send({ error: 'Error fetching voices from ElevenLabs.' });
+    }
 });
 
 const execCommand = (command) => {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) reject(error);
-      resolve(stdout);
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error('exec error:', error);
+                reject(error);
+            } else {
+                resolve(stdout);
+            }
+        });
     });
-  });
 };
 
-const lipSyncMessage = async (message) => {
-  const time = new Date().getTime();
-  console.log(`Starting conversion for message ${message}`);
-  await execCommand(
-    `ffmpeg -y -i audios/message_${message}.mp3 audios/message_${message}.wav`
-    // -y to overwrite the file
-  );
-  console.log(`Conversion done in ${new Date().getTime() - time}ms`);
-  await execCommand(
-    `E:\\demo\\ai-avatar\\r3f-virtual-girlfriend-backend\\Rhubarb-Lip-Sync-1.13.0-Windows\\Rhubarb-Lip-Sync-1.13.0-Windows\\rhubarb.exe -f json -o audios/message_${message}.json audios/message_${message}.wav -r phonetic`
-  );
-  // -r phonetic is faster but less accurate
-  console.log(`Lip sync done in ${new Date().getTime() - time}ms`);
+const lipSyncMessage = async (messageIndex) => {
+    const time = new Date().getTime();
+    console.log(`Starting conversion for message ${messageIndex}`);
+    try {
+        await execCommand(
+            `ffmpeg -y -i audios/message_${messageIndex}.mp3 audios/message_${messageIndex}.wav`
+        );
+        console.log(`Conversion done in ${new Date().getTime() - time}ms`);
+        await execCommand(
+          `/home/harisudhan/pondy_hack/Ujal/ai-avatar/Rhubarb-Lip-Sync-1.13.0-Linux/rhubarb -f json -o audios/message_${messageIndex}.json audios/message_${messageIndex}.wav -r phonetic`
+        );
+        console.log(`Lip sync done in ${new Date().getTime() - time}ms`);
+    } catch (error) {
+        console.error('Error during lip-sync:', error);
+        throw error;
+    }
 };
 
 app.post('/chat', async (req, res) => {
-  const userMessage = req.body.message;
-  if (!userMessage) {
-    res.send({
-      messages: [
-        {
-          text: 'Hey dear... How was your day?',
-          audio: await audioFileToBase64('audios/intro_0.wav'),
-          lipsync: await readJsonTranscript('audios/intro_0.json'),
-          facialExpression: 'smile',
-          animation: 'Talking_1',
-        },
-        {
-          text: "I missed you so much... Please don't go for so long!",
-          audio: await audioFileToBase64('audios/intro_1.wav'),
-          lipsync: await readJsonTranscript('audios/intro_1.json'),
-          facialExpression: 'sad',
-          animation: 'Crying',
-        },
-      ],
-    });
-    return;
-  }
-  if (!elevenLabsApiKey || openai.apiKey === '-') {
-    res.send({
-      messages: [
-        {
-          text: "Please my dear, don't forget to add your API keys!",
-          audio: await audioFileToBase64('audios/api_0.wav'),
-          lipsync: await readJsonTranscript('audios/api_0.json'),
-          facialExpression: 'angry',
-          animation: 'Angry',
-        },
-        {
-          text: "You don't want to ruin Wawa Sensei with a crazy ChatGPT and ElevenLabs bill, right?",
-          audio: await audioFileToBase64('audios/api_1.wav'),
-          lipsync: await readJsonTranscript('audios/api_1.json'),
-          facialExpression: 'smile',
-          animation: 'Laughing',
-        },
-      ],
-    });
-    return;
-  }
+    console.log("--- /chat request received ---");
+    console.log("Request body:", req.body);
+    const userMessage = req.body.message;
+    console.log("User message:", userMessage);
 
-  const project = 'tantrotsav-410809';
-  const location = 'us-central1';
-  const textModel = 'gemini-1.5-flash';
-  const vertexAI = new VertexAI({ project: project, location: location });
+    if (!userMessage) {
+        return res.status(400).send({ error: 'User message is required.' });
+    }
 
-  const generativeModelPreview = vertexAI.preview.getGenerativeModel({
-    model: textModel,
-    systemInstruction: {
-      'role': 'system',
-      'parts': [
-        {
-          'text':
-            'You are a virtual therapy bot designed to provide emotional support and advice to women. Your goal is to listen empathetically and offer thoughtful, comforting advice. Respond with a JSON array of messages (max 3). Each message should include the following properties:\n- text: The message you are sending to the user.\n- facialExpression: The emotional tone of your message (e.g., smile, sad, calm, concerned, supportive).\n- animation: The animation corresponding to the emotional tone (e.g., Talking_0, Talking_1, Talking_2, Idle, Supportive, Relaxed).',
-        },
-      ],
-    },
-  });
-  const request = {
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: userMessage || 'Hello' }],
-      },
-    ],
-  };
+    if (!elevenLabsApiKey) {
+        return res.status(400).send({ error: 'ElevenLabs API key is missing.' });
+    }
 
-  const result = await generativeModelPreview.generateContent(request);
-  console.log('Full response: ', JSON.stringify(result)); // Log the full response
+    if (!HUGGINGFACE_API_TOKEN) {
+        return res.status(400).send({ error: 'Hugging Face API key is missing.' });
+    }
 
-  // Ensure that candidates and parts are present before attempting to access them
-  const candidate = result?.response?.candidates?.[0];
-  const parts = candidate?.content?.parts;
+    try {
+        console.log("Sending request to Hugging Face Inference API...");
+        const hfResponse = await axios.post(
+            `https://api-inference.huggingface.co/models/${MODEL}`,
+            {
+                inputs: userMessage,
+                parameters: {
+                    max_new_tokens: 250,
+                    temperature: 0.7,
+                    return_full_text: false,
+                },
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${HUGGINGFACE_API_TOKEN}`,
+                },
+            }
+        );
+        console.log("Response from Hugging Face:", JSON.stringify(hfResponse.data));
 
-  if (!parts || !parts[0]?.text) {
-    console.error(
-      'Expected content parts not found in the response. Check response structure.'
-    );
-    res
-      .status(500)
-      .send({ error: 'Unexpected response structure from Google Gemini API.' });
-    return;
-  }
+        const generatedText = hfResponse.data[0].generated_text;
 
-  let messages;
-  try {
-    // Extract the JSON string from the Markdown block
-    const jsonResponse =
-      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        // Format the generated text into the expected structure
+        const responseMessages = {
+            messages: [{
+                text: generatedText,
+                facialExpression: 'smile', // Default or based on text analysis
+                animation: 'Talking_1' // Default or based on text analysis
+            }]
+        };
 
-    // Remove the Markdown code block formatting (i.e., ```json and closing ```)
-    const cleanJsonString = jsonResponse
-      .replace(/^```json\s*\n/, '')
-      .replace(/\n```$/, '');
+        console.log('Formatted response:', responseMessages);
 
-    // Now parse the cleaned-up JSON string
-    messages = JSON.parse(cleanJsonString);
-    console.log('Parsed JSON response:', messages);
-  } catch (error) {
-    console.error('Failed to parse JSON response:', error);
-    res
-      .status(500)
-      .send({ error: 'Error parsing response from Google Gemini API.' });
-    return;
-  }
+        for (let i = 0; i < responseMessages.messages.length; i++) {
+            const message = responseMessages.messages[i];
+            const fileName = `audios/message_${i}.mp3`;
+            const textInput = message.text;
 
-  // Further process `messages` as needed
+            console.log(`\n--- Processing message ${i} ---`);
+            console.log('Sending request to ElevenLabs:', textInput);
 
-  if (messages.messages) {
-    messages = messages.messages; // ChatGPT is not 100% reliable, sometimes it directly returns an array and sometimes a JSON object with a messages property
-  }
-  for (let i = 0; i < messages.length; i++) {
-    const message = messages[i];
-    // generate audio file
-    const fileName = `audios/message_${i}.mp3`; // The name of your audio file
-    const textInput = message.text; // The text you wish to convert to speech
-    await voice.textToSpeech(elevenLabsApiKey, voiceID, fileName, textInput);
-    // generate lipsync
-    await lipSyncMessage(i);
-    message.audio = await audioFileToBase64(fileName);
-    message.lipsync = await readJsonTranscript(`audios/message_${i}.json`);
-  }
+            await voice.textToSpeech(elevenLabsApiKey, voiceID, fileName, textInput);
+            console.log('Audio file generated:', fileName);
 
-  res.send({ messages });
+            await lipSyncMessage(i);
+            console.log('Lip sync generated for:', fileName);
+
+            message.audio = await audioFileToBase64(fileName);
+            message.lipsync = await readJsonTranscript(`audios/message_${i}.json`);
+        }
+
+        console.log('Sending response to frontend:', responseMessages);
+        res.send(responseMessages);
+
+    } catch (error) {
+        console.error('Error during conversation:', error);
+        if (error.response) {
+            console.error('Error Response Data:', error.response.data);
+            console.error('Error Response Status:', error.response.status);
+            console.error('Error Response Headers:', error.response.headers);
+        } else if (error.request) {
+            console.error('Error Request:', error.request);
+        } else {
+            console.error('Error Message:', error.message);
+        }
+        return res.status(500).send({ error: 'Error processing your request.' });
+    }
 });
 
+// Utility function to read and parse JSON transcripts
 const readJsonTranscript = async (file) => {
-  const data = await fs.readFile(file, 'utf8');
-  return JSON.parse(data);
+    try {
+        const data = await fs.readFile(file, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        console.error('Error reading transcript:', error);
+        throw error;
+    }
 };
 
+// Utility function to convert audio files to base64
 const audioFileToBase64 = async (file) => {
-  const data = await fs.readFile(file);
-  return data.toString('base64');
+    try {
+        const data = await fs.readFile(file);
+        return data.toString('base64');
+    } catch (error) {
+        console.error('Error converting audio to base64:', error);
+        throw error;
+    }
 };
 
+// Start the server
 app.listen(port, () => {
-  console.log(`Virtual Girlfriend listening on port ${port}`);
+    console.log(`Virtual Girlfriend listening on port ${port}`);
 });

@@ -25,7 +25,7 @@ load_dotenv()
 client = TestClient(app)
 
 # Define a single test image path
-test_image_path = Path("/home/systemx86/Desktop/Hack/Ujal/gm.jpg")  # You can change the extension if needed
+test_image_path = Path("/home/harisudhan/Downloads/OIP.jpeg")  # You can change the extension if needed
 
 def create_test_image(filepath):
     """Creates a simple test image."""

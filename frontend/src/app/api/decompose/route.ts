@@ -1,23 +1,26 @@
-import axios from 'axios';
 import { NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const data = await req.json();
-    console.log('Received data at decompose:', data);
-    const res = await axios.post(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/text-decomposition`,
-      { 'text': data.resText }
-    );
-    return NextResponse.json(
-      { decomposed: res.data.extracted_data },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Image generation failed:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate image' },
-      { status: 500 }
-    );
+    const data = await request.json();
+    console.log('Received data in /api/decompose:', data);
+
+    if (data.resImage) {
+      // **Replace this with your actual image decomposition/processing logic**
+      console.log('Processing resImage:', data.resImage);
+      const encodedImage = `processed_${data.resImage}`; // Placeholder
+      return NextResponse.json({ encodedImage });
+    } else if (data.resText) {
+      // **Replace this with your actual text decomposition/processing logic**
+      console.log('Processing resText:', data.resText);
+      const decomposed = { text: data.resText, /* other decomposed data */ }; // Placeholder
+      return NextResponse.json({ decomposed });
+    } else {
+      console.log('Invalid data received:', data);
+      return new NextResponse('Invalid request data', { status: 400 });
+    }
+  } catch (error: any) {
+    console.error('Error in /api/decompose:', error);
+    return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 });
   }
 }
